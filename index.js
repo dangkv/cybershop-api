@@ -34,6 +34,12 @@ const POST_CHANGE_PW_RES = {
     missingOldPasswordField: {"success": false, "reason": "oldPassword field missing"},
 };
 
+const POST_CREATE_LISTING_RES = {
+    good: {"success": true},
+    missingDescriptionField: {"success":false,"reason":"description field missing"},
+    missingPriceField: {"success":false,"reason":"price field missing"},
+}
+
 const POST_LOGIN_RES = {
     good: {"success": true, "token": undefined},
     invalidPassword: {"success": false, "reason": "Invalid password"},
@@ -108,9 +114,18 @@ app.post("/change-password", (req, res) => {
 
 // });
 
-// app.post("/create-listing", (req, res) => {
+app.post("/create-listing", (req, res) => {
+    let body = JSON.parse(req.body);
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-// });
+    console.log("request: /create-listing", body);
+
+    reqJSON = {price: body.price, description: body.description};
+
+    res.send(postCreateListing(token, reqJSON));
+
+});
 
 app.post("/login", (req, res) => {
     let body = JSON.parse(req.body);
@@ -198,6 +213,52 @@ let postChangePasswordValidation = (token, reqJSON) => {
     return POST_CHANGE_PW_RES["good"];
 };
 
+let postCreateListing = (token, reqJSON) => {
+    let description = reqJSON.description;
+    let newId = genId();
+    let price = reqJSON.price;
+    let response = postCreateListingValidation(token, reqJSON);
+
+    if (response["success"]) {
+        let username = tokenTable.get(token)["username"];
+        response["success"]["listingId"] = newId;
+
+        let item = {
+            seller: username,
+            description: description,
+            price: price,
+            isSold: false,
+        };
+
+        itemTable.set(newId, item);
+        console.log("Thank you for listing an item at cybershop");
+    };
+
+    console.log("response: /create-listing-", response);
+    return response
+};
+
+let postCreateListingValidation = (token, reqJSON) => {
+    let description = reqJSON.description;
+    let price = reqJSON.price;
+
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
+
+    // check for missing description field
+    if (description === undefined) {
+        return POST_CREATE_LISTING_RES["missingDescriptionField"];
+    };
+    // check for missing price field
+    if (price === undefined) {
+        return POST_CREATE_LISTING_RES["missingPriceField"];
+    };
+
+    return POST_CREATE_LISTING_RES["good"]
+};
+
 let postLogin = reqJSON => {
     let response = postLoginValidation(reqJSON);
 
@@ -205,7 +266,7 @@ let postLogin = reqJSON => {
         console.log("welcome back:", reqJSON["username"]);
     };
 
-    console.log("response: /signup-", response);
+    console.log("response: /login-", response);
     return response
 };
 

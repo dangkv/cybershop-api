@@ -2,7 +2,7 @@
 
 # URL
 glitch_url="https://parallel-third-digit.glitch.me"
-heroku_url="https://cyber-shop.herokuapp.com/"
+heroku_url="https://cyber-shop.herokuapp.com"
 local_url="localhost:3000"
 
 url=$glitch_url
@@ -18,7 +18,7 @@ curl -X POST -d '{"username": "jon", "password": "doe"}' "$url/signup"
 curl -X POST -d '{"username": "jon", "password": "doe"}' "$url/signup"
 
 # login
-echo "\n\n\nLogin"
+echo -e "\n\n\nLogin"
 curl -X POST -d '{"username": "jon"}' "$url/login"
 curl -X POST -d '{"password": "doe"}' "$url/login"
 curl -X POST -d '{"username": "jonn", "password": "doe"}' "$url/login"
@@ -32,3 +32,10 @@ curl -XPOST -H 'token: 1' -d '{"oldPassword":"doe"}' "$url/change-password"
 curl -XPOST -H 'token: 1' -d '{"newPassword":"though"}' "$url/change-password"
 curl -XPOST -H 'token: 1' -d '{"oldPassword":"do","newPassword":"though"}' "$url/change-password"
 curl -XPOST -H 'token: 1' -d '{"oldPassword":"doe","newPassword":"though"}' "$url/change-password"
+
+# create-listing
+curl -XPOST -d '{"price":30,"description":"a hat"}' "$url/create-listing"
+curl -XPOST -H 'token: 2' -d '{"price":30,"description":"a hat"}' "$url/create-listing"
+curl -XPOST -H 'token: 1' -d '{"price":30}' "$url/create-listing"
+curl -XPOST -H 'token: 1' -d '{"description":"a hat"}' "$url/create-listing"
+curl -XPOST -H 'token: 1' -d '{"price":30,"description":"a hat"}' "$url/create-listing"
