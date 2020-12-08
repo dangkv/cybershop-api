@@ -73,7 +73,7 @@ const POST_SIGNUP_RES = {
 // });
 
 app.get("/sourcecode", (req, res) => {
-    res.send(require('fs').readFileSync(__filename).toString())
+    res.send(require('fs').readFileSync(__filename).toString());
 });
 
 // app.get("/status", (req, res) => {
@@ -263,6 +263,12 @@ let postLogin = reqJSON => {
     let response = postLoginValidation(reqJSON);
 
     if (response["success"]) {
+        let token = genId().toString();
+        let username = reqJSON["username"];
+
+        tokenTable.set(token, {username: username});
+        response["token"] = token;
+
         console.log("welcome back:", reqJSON["username"]);
     };
 
@@ -290,10 +296,7 @@ let postLoginValidation = reqJSON => {
     if (userTable.get(username)["password"] !== password) {
         return POST_LOGIN_RES["invalidPassword"]
     };
-    // if all checkes passe
-    let token = genId().toString();
-    tokenTable.set(token, {username: username});
-    POST_LOGIN_RES["good"]["token"] = token;
+
     return POST_LOGIN_RES["good"];
 };
 
