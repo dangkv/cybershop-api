@@ -5,7 +5,7 @@ glitch_url="https://parallel-third-digit.glitch.me"
 heroku_url="https://cyber-shop.herokuapp.com/"
 local_url="localhost:3000"
 
-url=$local_url
+url=$glitch_url
 
 clear="\033[0m"
 green="\033[0;32m"
@@ -26,5 +26,9 @@ curl -X POST -d '{"username": "jon", "password": "do"}' "$url/login"
 curl -X POST -d '{"username": "jon", "password": "doe"}' "$url/login"
 
 # change-password
-
-curl -XPOST -H 'token: this_is_the_token_3' -d '{"channelName": "thebooth"}' "$url/leave-channel"
+curl -XPOST -d '{"oldPassword":"doe","newPassword":"though"}' "$url/change-password"
+curl -XPOST -H 'token: 2' -d '{"oldPassword":"doe","newPassword":"though"}' "$url/change-password"
+curl -XPOST -H 'token: 1' -d '{"oldPassword":"doe"}' "$url/change-password"
+curl -XPOST -H 'token: 1' -d '{"newPassword":"though"}' "$url/change-password"
+curl -XPOST -H 'token: 1' -d '{"oldPassword":"do","newPassword":"though"}' "$url/change-password"
+curl -XPOST -H 'token: 1' -d '{"oldPassword":"doe","newPassword":"though"}' "$url/change-password"

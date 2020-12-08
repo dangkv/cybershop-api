@@ -24,12 +24,14 @@ let counter = 0
 
 const GLOBAL_RES = {
     invalidToken: {"success": false, "reason": "Invalid token"},
-    missingTokenField: {"success": false, "reason": "Unable to authenticate"},
+    missingTokenField: {"success": false, "reason": "token field missing"},
 };
 
 const POST_CHANGE_PW_RES = {
     good: {"success": true},
-    invalidPassword: {"success": false, "reason": "Invalid password"},
+    invalidPassword: {"success": false, "reason": "Unable to authenticate"},
+    missingNewPasswordField: {"success": false, "reason": "newPassword field missing"},
+    missingOldPasswordField: {"success": false, "reason": "oldPassword field missing"},
 };
 
 const POST_LOGIN_RES = {
@@ -46,7 +48,6 @@ const POST_SIGNUP_RES = {
     missingUsernameField: { "success": false, "reason": "username field missing"},
     missingPasswordField: { "success": false, "reason": "password field missing"},
 };
-
 
 
 // api endpoints ===============================================================
@@ -161,7 +162,7 @@ let postChangePassword = (token, reqJSON) => {
 
     if (response["success"]) {
         let newPassword = reqJSON.newPassword;
-        let username = tokenTable.get(token);
+        let username = tokenTable.get(token)["username"];
 
         userTable.get(username)["password"] = newPassword;
         console.log("Your password has been changed");
@@ -173,12 +174,14 @@ let postChangePassword = (token, reqJSON) => {
 let postChangePasswordValidation = (token, reqJSON) => {
     let newPassword = reqJSON.newPassword;
     let oldPassword = reqJSON.oldPassword;
-    let username = tokenTable.get(token);
 
     // check for invalid token request
     if (tokenValidations(token) !== undefined) {
         return tokenValidations(token);
     };
+
+    let username = tokenTable.get(token)["username"];
+
     // check for missing newPassword field
     if (newPassword === undefined) {
         return POST_CHANGE_PW_RES["missingNewPasswordField"];
@@ -243,7 +246,7 @@ let postSignUp = reqJSON => {
         console.log("welcome to cybershop: ", username)
     };
 
-    console.log("response: /signup-", response);
+    console.log("response: /login-", response);
     return response;
 };
 
