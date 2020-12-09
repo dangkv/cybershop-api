@@ -1,6 +1,7 @@
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const express = require('express');
+const { token } = require('morgan');
 const morgan = require('morgan');
 
 const app = express();
@@ -22,6 +23,11 @@ let counter = 0
 
 // responses ===================================================================
 
+const GET_LISTING_RES = {
+    good: {"success":true,"listing": undefined},
+    invalidListing: {"success":false,"reason":"Invalid listing id"},
+};
+
 const GLOBAL_RES = {
     invalidToken: {"success": false, "reason": "Invalid token"},
     missingTokenField: {"success": false, "reason": "token field missing"},
@@ -35,7 +41,7 @@ const POST_CHANGE_PW_RES = {
 };
 
 const POST_CREATE_LISTING_RES = {
-    good: {"success": true},
+    good: {"success": true, listingId: undefined},
     missingDescriptionField: {"success":false,"reason":"description field missing"},
     missingPriceField: {"success":false,"reason":"price field missing"},
 }
@@ -61,14 +67,31 @@ const POST_SIGNUP_RES = {
 // GET -------------------------------------------------------------------------
 
 // app.get("/cart", (req, res) => {
+    // let token = req.headers["token"];
 
+    // console.log("request: /cart");
+    // res.send(getCart(token));
 // });
 
-// app.get("/listing", (req, res) => {
+app.get("/listing", (req, res) => {
+    let listingId = req.query.listingId
 
+    console.log("request: /listing-", listingId);
+    res.send(getListing(listingId));
+});
+
+// app.get("/purchase-history", (req, res) => {
+    // let token = req.headers["token"];
+
+    // console.log("request: /purchase-history");
+    // res.send(getPurchaseHistory(token));
 // });
 
 // app.get("/selling", (req, res) => {
+    // let sellerUsername = req.query.sellerUsername;
+
+    // console.log("request: /selling-", sellerUsername);
+    // res.send(getSelling(sellerUsername));
 
 // });
 
@@ -77,17 +100,31 @@ app.get("/sourcecode", (req, res) => {
 });
 
 // app.get("/status", (req, res) => {
+    // let itemId = req.query.itemid
 
+    // console.log("request: /status-", itemId);
+    // res.send(getStatus(itemId));
 // });
 
 // app.get("/reviews", (req, res) => {
+    // let sellerUsername = req.query.sellerUsername;
 
+    // console.log("request: /reviews-", sellerUsername);
+    // res.send(getReviews(sellerUsername));
 // });
 
 // POST ------------------------------------------------------------------------
 
 // app.post("/add-to-cart", (req, res) => {
+    // let body = JSON.parse(req.body);
+    // let reqJSON = undefined;
+    // let token = req.headers["token"];
 
+    // console.log("request: /add-to-cart-", body);
+
+    // reqJSON = {itemId: body.itemid};
+
+    // res.send(postAddToCart(token, reqJSON));
 // });
 
 app.post("/change-password", (req, res) => {
@@ -103,15 +140,35 @@ app.post("/change-password", (req, res) => {
 });
 
 // app.post("/chat", (req, res) => {
+    // let body = JSON.parse(req.body);
+    // let reqJSON = undefined;
+    // let token = req.headers["token"];
 
+    // console.log("request: /chat-", body);
+
+    // reqJSON = {destination: body.destination, contents: body.contents};
+
+    // res.send(postChat(token, reqJSON));
 // });
 
 // app.post("/chat-messages", (req, res) => {
+    // let body = JSON.parse(req.body);
+    // let reqJSON = undefined;
+    // let token = req.headers["token"];
 
+    // console.log("request: /chat-messages", body);
+
+    // reqJSON = {destination: body.destination};
+
+    // res.send(postChatMessages(token, reqJSON));
 // });
 
 // app.post("/checkout", (req, res) => {
+    // let token = req.headers["token"];
 
+    // console.log("request: /checkout-", body);
+
+    // res.send(postCheckout(token));
 // });
 
 app.post("/create-listing", (req, res) => {
@@ -138,16 +195,28 @@ app.post("/login", (req, res) => {
     res.send(postLogin(reqJSON));
 });
 
-// app.post("/modify-listing", (req, res) => {
+app.post("/modify-listing", (req, res) => {
+    let body = JSON.parse(req.body);
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-// });
+    console.log("request: /modify-listing-", body);
 
-// app.post("/purchase-history", (req, res) => {
+    reqJSON = {itemId: body.itemid, price: body.price, description: body.description};
 
-// });
+    res.send(postModifyListing(token, reqJSON));
+});
 
 // app.post("/ship", (req, res) => {
+    // let body = JSON.parse(req.body);
+    // let reqJSON = undefined;
+    // let token = req.headers["token"];
 
+    // console.log("request: /ship-", body);
+
+    // reqJSON = {itemId: body.itemid};
+
+    // res.send(postShip(token, reqJSON));
 // });
 
 app.post("/signup", (req, res) => {
@@ -162,7 +231,15 @@ app.post("/signup", (req, res) => {
 });
 
 // app.post("/review-seller", (req, res) => {
+    // let body = JSON.parse(req.body);
+    // let reqJSON = undefined;
+    // let token = req.headers["token"];
 
+    // console.log("request: /review-seller-", body);
+
+    // reqJSON = {numStars: body.numStars, contents: body.contents, itemId: body.itemid};
+
+    // res.send(postReviewSeller(token, reqJSON));
 // });
 
 // others ----------------------------------------------------------------------
@@ -171,6 +248,65 @@ app.listen(process.env.PORT || 3000)
 // functions ===================================================================
 
 // endpoint functions ----------------------------------------------------------
+let getCart = token => {
+
+};
+
+let getCartValidation = token => {
+
+};
+
+let getListing = (listingId) => {
+    let response = getListingValidation(listingId);
+
+    if (response["success"]) {
+        let listingValue = itemTable.get(listingId)
+        let info = {
+            "price": listingValue["price"],
+            "description": listingValue["description"],
+            "itemId": listingId,
+            "sellerUsername": listingValue["sellerUsername"],
+        };
+
+        response["listing"] = info;
+    };
+
+    console.log('response: /listing', response);
+    return response;
+};
+
+let getListingValidation = (listingId) => {
+
+    if (!itemTable.has(listingId)) {
+        return GET_LISTING_RES["invalidListing"];
+    };
+
+    return GET_LISTING_RES["good"];
+};
+
+let getPurchaseHistory = token => {
+
+};
+
+let getPurchaseHistoryValidation = token => {
+
+};
+
+let getSelling = sellerUsername => {
+
+};
+
+let getSellingValidation = sellerUsername => {
+    
+};
+
+let postAddToCart = (token, reqJSON) => {
+
+};
+
+let postAddToCartValidation = (token, reqJSON) => {
+
+};
 
 let postChangePassword = (token, reqJSON) => {
     let response = postChangePasswordValidation(token, reqJSON);
@@ -184,6 +320,7 @@ let postChangePassword = (token, reqJSON) => {
     };
 
     console.log("response: /change-password-", response);
+    return response;
 };
 
 let postChangePasswordValidation = (token, reqJSON) => {
@@ -213,24 +350,50 @@ let postChangePasswordValidation = (token, reqJSON) => {
     return POST_CHANGE_PW_RES["good"];
 };
 
+let postChat = (token, reqJSON) => {
+
+};
+
+let postChatValidation = (token, reqJSON) => {
+
+};
+
+let postChatMessages = (token, reqJSON) => {
+
+};
+
+let postChatMessagesValidation = (token, reqJSON) => {
+
+};
+
+let postCheckout = token => {
+
+};
+
+let postCheckoutValidation = token => {
+
+};
+
 let postCreateListing = (token, reqJSON) => {
     let description = reqJSON.description;
-    let newId = genId();
     let price = reqJSON.price;
     let response = postCreateListingValidation(token, reqJSON);
 
     if (response["success"]) {
+        let newId = genId().toString();
         let username = tokenTable.get(token)["username"];
         response["success"]["listingId"] = newId;
 
         let item = {
-            seller: username,
-            description: description,
             price: price,
+            description: description,
+            sellerUsername: username,
             isSold: false,
         };
 
         itemTable.set(newId, item);
+
+        response["listingId"] = newId;
         console.log("Thank you for listing an item at cybershop");
     };
 
@@ -300,6 +463,32 @@ let postLoginValidation = reqJSON => {
     return POST_LOGIN_RES["good"];
 };
 
+let postModifyListing = (token, reqJSON) => {
+    let description = reqJSON.description;
+    let itemId = reqJSON.itemId;
+    let price = reqJSON.price;
+    let response = postModifyListingValidation(token, reqJSON);
+
+    if (response["success"]) {
+    
+    }
+
+    console.log("response: /modify-listing-", response);
+    return response
+};
+
+let postModifyListingValidation = (token, reqJSON) => {
+
+};
+
+let postShip = (token, reqJSON) => {
+
+};
+
+let postShipValidation = (token, reqJSON) => {
+
+};
+
 let postSignUp = reqJSON => {
     let password = reqJSON.password;
     let response = postSignUpValidation(reqJSON);
@@ -334,6 +523,14 @@ let postSignUpValidation = reqJSON => {
     };
 
     return POST_SIGNUP_RES["good"];
+};
+
+let postReviewSeller = (token, reqJSON) => {
+
+};
+
+let postReviewSellerValidation = (token, reqJSON) => {
+
 };
 
 // support functions -----------------------------------------------------------
