@@ -24,7 +24,7 @@ McGill - Fall2020 - CCCS425 - Web Services - Project 2
 | fields | datatype | description |
 | --- | --- | --- |
 | itemId | integer | PK, unique id, aka listingId |
-| seller | varchar | FK, unique username from userTable, username of seller |
+| sellerUsername | varchar | FK, unique username from userTable, username of seller |
 | description | varchar | item description |
 | price | integer | price of item |
 | isSold | bool | indicates if item is sold |

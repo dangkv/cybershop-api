@@ -1,5 +1,6 @@
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { response } = require('express');
 const express = require('express');
 const { token } = require('morgan');
 const morgan = require('morgan');
@@ -23,6 +24,10 @@ let counter = 0
 
 // responses ===================================================================
 
+const GET_CART_RES = {
+    good: {"success":true,"cart": undefined},
+}
+
 const GET_LISTING_RES = {
     good: {"success":true,"listing": undefined},
     invalidListing: {"success":false,"reason":"Invalid listing id"},
@@ -33,6 +38,12 @@ const GLOBAL_RES = {
     missingTokenField: {"success": false, "reason": "token field missing"},
 };
 
+const POST_ADD_TO_CART_RES = {
+    good: {"success":true},
+    missingItemIdField: {"success":false,"reason":"itemid field missing"},
+    itemNotExist: {"success":false,"reason":"Item not found"},
+};
+
 const POST_CHANGE_PW_RES = {
     good: {"success": true},
     invalidPassword: {"success": false, "reason": "Unable to authenticate"},
@@ -40,11 +51,17 @@ const POST_CHANGE_PW_RES = {
     missingOldPasswordField: {"success": false, "reason": "oldPassword field missing"},
 };
 
+const POST_CHECKOUT_RES = {
+    good: {"success":true},
+    itemNotAvailable: {"success":false,"reason":"Item in cart no longer available"},
+    emptyCart: {"success":false,"reason":"Empty cart"},
+}
+
 const POST_CREATE_LISTING_RES = {
     good: {"success": true, listingId: undefined},
     missingDescriptionField: {"success":false,"reason":"description field missing"},
     missingPriceField: {"success":false,"reason":"price field missing"},
-}
+};
 
 const POST_LOGIN_RES = {
     good: {"success": true, "token": undefined},
@@ -52,6 +69,11 @@ const POST_LOGIN_RES = {
     missingUsernameField: {"success": false, "reason": "username field missing"},
     missingPasswordField: {"success": false, "reason": "password field missing"},
     usernameNotExist: {"success": false, "reason": "User does not exist"},
+};
+
+const POST_MODIFY_LISTING_RES = {
+    good: {"success":true},
+    missingItemIdField: {"success":false,"reason":"itemid field missing"},
 };
 
 const POST_SIGNUP_RES = {
@@ -66,12 +88,12 @@ const POST_SIGNUP_RES = {
 
 // GET -------------------------------------------------------------------------
 
-// app.get("/cart", (req, res) => {
-    // let token = req.headers["token"];
+app.get("/cart", (req, res) => {
+    let token = req.headers["token"];
 
-    // console.log("request: /cart");
-    // res.send(getCart(token));
-// });
+    console.log("request: /cart");
+    res.send(getCart(token));
+});
 
 app.get("/listing", (req, res) => {
     let listingId = req.query.listingId
@@ -115,17 +137,17 @@ app.get("/sourcecode", (req, res) => {
 
 // POST ------------------------------------------------------------------------
 
-// app.post("/add-to-cart", (req, res) => {
-    // let body = JSON.parse(req.body);
-    // let reqJSON = undefined;
-    // let token = req.headers["token"];
+app.post("/add-to-cart", (req, res) => {
+    let body = JSON.parse(req.body);
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-    // console.log("request: /add-to-cart-", body);
+    console.log("request: /add-to-cart-", body);
 
-    // reqJSON = {itemId: body.itemid};
+    reqJSON = {itemId: body.itemid};
 
-    // res.send(postAddToCart(token, reqJSON));
-// });
+    res.send(postAddToCart(token, reqJSON));
+});
 
 app.post("/change-password", (req, res) => {
     let body = JSON.parse(req.body);
@@ -163,13 +185,13 @@ app.post("/change-password", (req, res) => {
     // res.send(postChatMessages(token, reqJSON));
 // });
 
-// app.post("/checkout", (req, res) => {
-    // let token = req.headers["token"];
+app.post("/checkout", (req, res) => {
+    let token = req.headers["token"];
 
-    // console.log("request: /checkout-", body);
+    console.log("request: /checkout");
 
-    // res.send(postCheckout(token));
-// });
+    res.send(postCheckout(token));
+});
 
 app.post("/create-listing", (req, res) => {
     let body = JSON.parse(req.body);
@@ -249,11 +271,39 @@ app.listen(process.env.PORT || 3000)
 
 // endpoint functions ----------------------------------------------------------
 let getCart = token => {
+    let response = getCartValidation(token);
 
+    if (response["success"]) {
+        let username = tokenTable.get(token)["username"];
+        let cartItemList = [];
+        let cartList = cartTable.get(username)["cartList"]
+
+        for (let i = 0; i < cartList.length; i++) {
+            let cartItem = itemTable.get(cartList[i]);
+            let itemInfo = {
+                price: cartItem["price"],
+                description: cartItem["description"],
+                itemId: cartList[i],
+                sellerUsername: cartItem["sellerUsername"],
+            };
+            cartItemList.push(itemInfo);
+        };
+
+        response["cart"] = cartItemList;
+    };
+
+    console.log("response: /cart-", response);
+
+    return response;
 };
 
 let getCartValidation = token => {
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
 
+    return GET_CART_RES["good"];
 };
 
 let getListing = (listingId) => {
@@ -301,11 +351,42 @@ let getSellingValidation = sellerUsername => {
 };
 
 let postAddToCart = (token, reqJSON) => {
+    let response = postAddToCartValidation(token, reqJSON);
 
+    if (response["success"]) {
+        let itemId = reqJSON.itemId;
+        let username = tokenTable.get(token)["username"];
+
+        // check if user has existing cart
+        if (cartTable.has(username)){
+            cartTable.get(username)["cartList"].push(itemId);
+        } else {
+            cartTable.set(username, {cartList:[itemId]});
+        };
+    }
+
+    console.log("response: /postAddToCart-", response);
+
+    return response;
 };
 
 let postAddToCartValidation = (token, reqJSON) => {
+    let itemId = reqJSON.itemId
 
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
+    // check for missing item id field
+    if (itemId === undefined) {
+        return POST_ADD_TO_CART_RES["missingItemIdField"]
+    };
+    // check for item in itemTable
+    if (!itemTable.has(itemId)) {
+        return POST_ADD_TO_CART_RES["itemNotExist"];
+    };
+    
+    return POST_ADD_TO_CART_RES["good"];
 };
 
 let postChangePassword = (token, reqJSON) => {
@@ -367,11 +448,63 @@ let postChatMessagesValidation = (token, reqJSON) => {
 };
 
 let postCheckout = token => {
+    let response = postCheckoutValidation(token);
 
+    if (response["success"]) {
+        let username = tokenTable.get(token)["username"];
+        let cartList = cartTable.get(username)["cartList"];
+        
+        for (let i = 0; i < cartList.length; i++){
+            let itemId = cartList[i];
+
+            // set isSold to true in itemTable
+            itemTable.get(itemId)["isSold"] = true;
+
+            // push all cart items to purchaseHistoryTable
+            if (purchaseHistoryTable.has(username)) {
+                purchaseHistoryTable.get(username)["purchaseList"].push(itemId);
+            } else {
+                purchaseHistoryTable.set(username, {purchaseList: [itemId]});
+            };
+        };
+
+        // clear cart
+        cartList = [];
+        console.log("Thank you for shopping at cybershop, see you in the near future");
+    };
+
+    console.log("reponse: /checkout-", response);
+    return response;
 };
 
 let postCheckoutValidation = token => {
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
 
+    let username = tokenTable.get(token)["username"];
+    console.log("tables:", itemTable)
+    console.log("username:", username)
+    console.log("cartTable:", cartTable)
+    console.log("!cartTable.has(username)", !cartTable.has(username))
+    
+    // check for empty cart
+    if (!cartTable.has(username) || cartTable.get(username)["cartList"].length === 0) {
+        return POST_CHECKOUT_RES["emptyCart"];
+    };
+
+    let cartList = cartTable.get(username)["cartList"];
+
+    // check for item availability
+    for (let i = 0; i < cartList.length; i++){
+        let itemId = cartList[i];
+        if (itemTable.get(itemId)["isSold"]) {
+            return POST_CHECKOUT_RES["itemNotAvailable"];
+        };
+    };
+    
+    return POST_CHECKOUT_RES["good"];
 };
 
 let postCreateListing = (token, reqJSON) => {
@@ -470,7 +603,18 @@ let postModifyListing = (token, reqJSON) => {
     let response = postModifyListingValidation(token, reqJSON);
 
     if (response["success"]) {
-    
+        let item = itemTable.get(itemId);
+
+        if (description !== undefined) {
+            item["description"] = description;
+        };
+
+        if (price !== undefined) {
+            item["price"] = price;
+        };
+
+        itemTable.set(itemId, item);
+        console.log("Your listing has been modified");
     }
 
     console.log("response: /modify-listing-", response);
@@ -478,7 +622,17 @@ let postModifyListing = (token, reqJSON) => {
 };
 
 let postModifyListingValidation = (token, reqJSON) => {
-
+    let itemId = reqJSON.itemId;
+    
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
+    // check for missing item id field
+    if (itemId === undefined) {
+        return POST_MODIFY_LISTING_RES["missingItemIdField"];
+    };
+    return POST_MODIFY_LISTING_RES["good"];
 };
 
 let postShip = (token, reqJSON) => {
