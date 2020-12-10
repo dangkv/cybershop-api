@@ -37,6 +37,12 @@ const GET_PURCHASE_HIS_RES = {
     good: {"success":true,"purchased": undefined},
 };
 
+const GET_STATUS_RES = {
+    good: {"success":true,"status":"shipped"},
+    notShipped: {"success":true,"status":"not-shipped"},
+    itemNotSold: {"success":false,"reason":"Item not sold"},
+}
+
 const GLOBAL_RES = {
     invalidToken: {"success": false, "reason": "Invalid token"},
     missingTokenField: {"success": false, "reason": "token field missing"},
@@ -93,6 +99,13 @@ const POST_MODIFY_LISTING_RES = {
     missingItemIdField: {"success":false,"reason":"itemid field missing"},
 };
 
+const POST_SHIP_RES = {
+    good: {"success":true},
+    alreadyShipped: {"success":false,"reason":"Item has already shipped"},
+    itemNotSold: {"success":false,"reason":"Item was not sold"},
+    invalidItem: {"success":false,"reason":"User is not selling that item"},
+};
+
 const POST_SIGNUP_RES = {
     good: {"success": true},
     usernameExist: { "success": false, "reason": "Username exists" },
@@ -138,12 +151,12 @@ app.get("/sourcecode", (req, res) => {
     res.send(require('fs').readFileSync(__filename).toString());
 });
 
-// app.get("/status", (req, res) => {
-    // let itemId = req.query.itemid
+app.get("/status", (req, res) => {
+    let itemId = req.query.itemid
 
-    // console.log("request: /status-", itemId);
-    // res.send(getStatus(itemId));
-// });
+    console.log("request: /status-", itemId);
+    res.send(getStatus(itemId));
+});
 
 // app.get("/reviews", (req, res) => {
     // let sellerUsername = req.query.sellerUsername;
@@ -258,17 +271,17 @@ app.post("/modify-listing", (req, res) => {
     res.send(postModifyListing(token, reqJSON));
 });
 
-// app.post("/ship", (req, res) => {
-    // let body = JSON.parse(req.body);
-    // let reqJSON = undefined;
-    // let token = req.headers["token"];
+app.post("/ship", (req, res) => {
+    let body = JSON.parse(req.body);
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-    // console.log("request: /ship-", body);
+    console.log("request: /ship-", body);
 
-    // reqJSON = {itemId: body.itemid};
+    reqJSON = {itemId: body.itemid};
 
-    // res.send(postShip(token, reqJSON));
-// });
+    res.send(postShip(token, reqJSON));
+});
 
 app.post("/signup", (req, res) => {
     let body = JSON.parse(req.body);
@@ -408,6 +421,25 @@ let getSelling = sellerUsername => {
 
 let getSellingValidation = sellerUsername => {
     
+};
+
+let getStatus = itemId => {
+    let response = getStatusValidation(itemId);
+
+    console.log("response: /status-", response);
+    return response;
+};
+
+let getStatusValidation = itemId => {
+    // check for item availability
+    if (!itemTable.get(itemId)["isSold"]) {
+        return GET_STATUS_RES["itemNotSold"];
+    };
+    // check for item already shipped
+    if (!shipTable.has(itemId)) {
+        return GET_STATUS_RES["notShipped"];
+    };
+    return GET_STATUS_RES["good"];
 };
 
 let postAddToCart = (token, reqJSON) => {
@@ -610,10 +642,6 @@ let postCheckoutValidation = token => {
     };
 
     let username = tokenTable.get(token)["username"];
-    console.log("tables:", itemTable)
-    console.log("username:", username)
-    console.log("cartTable:", cartTable)
-    console.log("!cartTable.has(username)", !cartTable.has(username))
     
     // check for empty cart
     if (!cartTable.has(username) || cartTable.get(username)["cartList"].length === 0) {
@@ -763,18 +791,39 @@ let postModifyListingValidation = (token, reqJSON) => {
 
 let postShip = (token, reqJSON) => {
     let response = postShipValidation(token, reqJSON);
+    
     if (response["success"]) {
-        console.log();
+        let itemId = reqJSON.itemId;
+        let username = tokenTable.get(token)["username"];
+
+        shipTable.set(itemId, {sellerUsername: username});
     };
     console.log("reponse: /postShip-", response);
     return response;
 };
 
 let postShipValidation = (token, reqJSON) => {
+    let itemId = reqJSON.itemId;
     // check for invalid token request
     if (tokenValidations(token) !== undefined) {
         return tokenValidations(token);
     };
+    // check for item already shipped
+    if (shipTable.has(itemId)) {
+        return POST_SHIP_RES["alreadyShipped"];
+    };
+
+    let username = tokenTable.get(token)["username"];
+
+    // check for item availability
+    if (!itemTable.get(itemId)["isSold"]) {
+        return POST_SHIP_RES["itemNotSold"];
+    };
+    // check for valid seller
+    if (itemTable.get(itemId)["sellerUsername"] !== username) {
+        return POST_SHIP_RES["invalidItem"];
+    };
+    return POST_SHIP_RES["good"];
 };
 
 let postSignUp = reqJSON => {

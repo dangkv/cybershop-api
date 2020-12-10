@@ -33,7 +33,7 @@ McGill - Fall2020 - CCCS425 - Web Services - Project 2
 | fields | datatype | description |
 | --- | --- | --- |
 | username | varchar | FK, unique username from userTable |
-| purchaseList | list | list of itemIds purchased |
+| purchasedList | list | list of itemIds purchased |
 
 ## sellerReviewTable
 | fields | datatype | description |
@@ -46,7 +46,7 @@ McGill - Fall2020 - CCCS425 - Web Services - Project 2
 | fields | datatype | description |
 | --- | --- | --- |
 | itemId | integer | FK, unique id from itemTable |
-| username | varchar | FK, unique username from userTable. username of buyer |
+| sellerUsername | varchar | FK, unique username from userTable. username of seller |
 
 ## tokenTable
 | fields | datatype | description |
