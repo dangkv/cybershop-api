@@ -33,6 +33,10 @@ const GET_LISTING_RES = {
     invalidListing: {"success":false,"reason":"Invalid listing id"},
 };
 
+const GET_PURCHASE_HIS_RES = {
+    good: {"success":true,"purchased": undefined},
+};
+
 const GLOBAL_RES = {
     invalidToken: {"success": false, "reason": "Invalid token"},
     missingTokenField: {"success": false, "reason": "token field missing"},
@@ -49,6 +53,19 @@ const POST_CHANGE_PW_RES = {
     invalidPassword: {"success": false, "reason": "Unable to authenticate"},
     missingNewPasswordField: {"success": false, "reason": "newPassword field missing"},
     missingOldPasswordField: {"success": false, "reason": "oldPassword field missing"},
+};
+
+const POST_CHAT_RES = {
+    good: {"success":true},
+    missingContentsField: {"success":false,"reason":"contents field missing"},
+    missingDestinationField: {"success":false,"reason":"destination field missing"},
+    invalidDestination: {"success":false,"reason":"Destination user does not exist"},
+};
+
+const POST_CHAT_MESSAGES_RES = {
+    good: {"success":true, "messages": undefined},
+    missingDestinationField: {"success":false,"reason":"destination field missing"},
+    invalidDestination: {"success":false,"reason":"Destination user not found"},
 };
 
 const POST_CHECKOUT_RES = {
@@ -102,12 +119,12 @@ app.get("/listing", (req, res) => {
     res.send(getListing(listingId));
 });
 
-// app.get("/purchase-history", (req, res) => {
-    // let token = req.headers["token"];
+app.get("/purchase-history", (req, res) => {
+    let token = req.headers["token"];
 
-    // console.log("request: /purchase-history");
-    // res.send(getPurchaseHistory(token));
-// });
+    console.log("request: /purchase-history");
+    res.send(getPurchaseHistory(token));
+});
 
 // app.get("/selling", (req, res) => {
     // let sellerUsername = req.query.sellerUsername;
@@ -161,29 +178,41 @@ app.post("/change-password", (req, res) => {
     res.send(postChangePassword(token, reqJSON));
 });
 
-// app.post("/chat", (req, res) => {
-    // let body = JSON.parse(req.body);
-    // let reqJSON = undefined;
-    // let token = req.headers["token"];
+app.post("/chat", (req, res) => {
+    let body = undefined;
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-    // console.log("request: /chat-", body);
+    try {
+        body = JSON.parse(req.body);
+    } catch {
+        body = {};
+    };
 
-    // reqJSON = {destination: body.destination, contents: body.contents};
+    console.log("request: /chat-", body);
 
-    // res.send(postChat(token, reqJSON));
-// });
+    reqJSON = {destination: body.destination, contents: body.contents};
 
-// app.post("/chat-messages", (req, res) => {
-    // let body = JSON.parse(req.body);
-    // let reqJSON = undefined;
-    // let token = req.headers["token"];
+    res.send(postChat(token, reqJSON));
+});
 
-    // console.log("request: /chat-messages", body);
+app.post("/chat-messages", (req, res) => {
+    let body = undefined;
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-    // reqJSON = {destination: body.destination};
+    try {
+        body = JSON.parse(req.body);
+    } catch {
+        body = {};
+    };
 
-    // res.send(postChatMessages(token, reqJSON));
-// });
+    console.log("request: /chat-messages", body);
+
+    reqJSON = {destination: body.destination};
+
+    res.send(postChatMessages(token, reqJSON));
+});
 
 app.post("/checkout", (req, res) => {
     let token = req.headers["token"];
@@ -288,7 +317,6 @@ let getCart = token => {
             };
             cartItemList.push(itemInfo);
         };
-
         response["cart"] = cartItemList;
     };
 
@@ -335,15 +363,47 @@ let getListingValidation = (listingId) => {
 };
 
 let getPurchaseHistory = token => {
+    let response = getPurchaseHistoryValidation(token);
+    
+    if (response["success"]) {
+        let username = tokenTable.get(token)["username"];
+        let purchasedHistoryList = [];
+        let purchasedList = purchaseHistoryTable.get(username)["purchasedList"];
 
+        for (let i = 0; i < purchasedList.length; i++) {
+            let purchasedItem = itemTable.get(purchasedList[i]);
+            let itemInfo = {
+                price: purchasedItem["price"],
+                description: purchasedItem["description"],
+                itemId: purchasedList[i],
+                sellerUsername: purchasedItem["sellerUsername"]
+            }
+            purchasedHistoryList.push(itemInfo);
+        }
+        response["purchased"] = purchasedHistoryList;
+    };
+    
+    console.log("reponse: /getPurchaseHistory-", response);
+    
+    return response;
 };
 
 let getPurchaseHistoryValidation = token => {
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
 
+    return GET_PURCHASE_HIS_RES["good"];
 };
 
 let getSelling = sellerUsername => {
-
+    let response = getSellingValidation(sellerUsername);
+    if (response["success"]) {
+        console.log();
+    };
+    console.log("reponse: /getSelling-", response);
+    return response;
 };
 
 let getSellingValidation = sellerUsername => {
@@ -432,19 +492,85 @@ let postChangePasswordValidation = (token, reqJSON) => {
 };
 
 let postChat = (token, reqJSON) => {
+    let contents = reqJSON.contents;
+    let destination = reqJSON.destination;
+    let response = postChatValidation(token, reqJSON);
 
+    if (response["success"]) {
+        let username = tokenTable.get(token)["username"];
+        let chatTableKey = JSON.stringify([username, destination].sort());
+        let message = {
+            from: username,
+            contents: contents,
+        }
+
+        // insert message to chatTable
+        if (chatTable.has(chatTableKey)){
+            chatTable.get(chatTableKey)["messages"].push(message);
+        } else {
+            chatTable.set(chatTableKey,{"messages": [message]});
+        };
+    };
+
+    console.log("reponse: /postChat-", response);
+    return response;
 };
 
 let postChatValidation = (token, reqJSON) => {
+    let contents = reqJSON.contents;
+    let destination = reqJSON.destination;
 
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
+    // check for missing  contents field
+    if (contents === undefined) {
+        return POST_CHAT_RES["missingContentsField"];
+    }
+    // check for missing destination field
+    if (destination === undefined) {
+        return POST_CHAT_RES["missingDestinationField"];
+    }
+    // check for invalid destination
+    if (!userTable.has(destination)) {
+        return POST_CHAT_RES["invalidDestination"];
+    };
+    return POST_CHAT_RES["good"];
 };
 
 let postChatMessages = (token, reqJSON) => {
+    let destination = reqJSON.destination;
+    let response = postChatMessagesValidation(token, reqJSON);
+    
+    if (response["success"]) {
+        let username = tokenTable.get(token)["username"];
+        let chatTableKey = JSON.stringify([username, destination].sort());
+        let messages = chatTable.get(chatTableKey)["messages"];
 
+        response["messages"] = messages
+    };
+
+    console.log("reponse: /postChatMessages-", response);
+    return response;
 };
 
 let postChatMessagesValidation = (token, reqJSON) => {
+    let destination = reqJSON.destination;
 
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
+    // check for missing destination field
+    if (destination === undefined) {
+        return POST_CHAT_MESSAGES_RES["missingDestinationField"];
+    }
+    // check for invalid destination
+    if (!userTable.has(destination)) {
+        return POST_CHAT_MESSAGES_RES["invalidDestination"];
+    };
+    return POST_CHAT_MESSAGES_RES["good"];
 };
 
 let postCheckout = token => {
@@ -462,9 +588,9 @@ let postCheckout = token => {
 
             // push all cart items to purchaseHistoryTable
             if (purchaseHistoryTable.has(username)) {
-                purchaseHistoryTable.get(username)["purchaseList"].push(itemId);
+                purchaseHistoryTable.get(username)["purchasedList"].push(itemId);
             } else {
-                purchaseHistoryTable.set(username, {purchaseList: [itemId]});
+                purchaseHistoryTable.set(username, {purchasedList: [itemId]});
             };
         };
 
@@ -636,11 +762,19 @@ let postModifyListingValidation = (token, reqJSON) => {
 };
 
 let postShip = (token, reqJSON) => {
-
+    let response = postShipValidation(token, reqJSON);
+    if (response["success"]) {
+        console.log();
+    };
+    console.log("reponse: /postShip-", response);
+    return response;
 };
 
 let postShipValidation = (token, reqJSON) => {
-
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
 };
 
 let postSignUp = reqJSON => {
@@ -680,11 +814,19 @@ let postSignUpValidation = reqJSON => {
 };
 
 let postReviewSeller = (token, reqJSON) => {
-
+    let response = postReviewSellerValidation(token, reqJSON);
+    if (response["success"]) {
+        console.log();
+    };
+    console.log("reponse: /postReviewSeller-", response);
+    return response;
 };
 
 let postReviewSellerValidation = (token, reqJSON) => {
-
+    // check for invalid token request
+    if (tokenValidations(token) !== undefined) {
+        return tokenValidations(token);
+    };
 };
 
 // support functions -----------------------------------------------------------
