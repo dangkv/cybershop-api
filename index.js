@@ -99,6 +99,12 @@ const POST_MODIFY_LISTING_RES = {
     missingItemIdField: {"success":false,"reason":"itemid field missing"},
 };
 
+const POST_SELLER_REV_RES = {
+    good: {"success":true},
+    txExist: {"success":false,"reason":"This transaction was already reviewed"},
+    notPurchased: {"success":false,"reason":"User has not purchased this item"}
+}
+
 const POST_SHIP_RES = {
     good: {"success":true},
     alreadyShipped: {"success":false,"reason":"Item has already shipped"},
@@ -294,17 +300,17 @@ app.post("/signup", (req, res) => {
     res.send(postSignUp(reqJSON));
 });
 
-// app.post("/review-seller", (req, res) => {
-    // let body = JSON.parse(req.body);
-    // let reqJSON = undefined;
-    // let token = req.headers["token"];
+app.post("/review-seller", (req, res) => {
+    let body = JSON.parse(req.body);
+    let reqJSON = undefined;
+    let token = req.headers["token"];
 
-    // console.log("request: /review-seller-", body);
+    console.log("request: /review-seller-", body);
 
-    // reqJSON = {numStars: body.numStars, contents: body.contents, itemId: body.itemid};
+    reqJSON = {numStars: body.numStars, contents: body.contents, itemId: body.itemid};
 
-    // res.send(postReviewSeller(token, reqJSON));
-// });
+    res.send(postReviewSeller(token, reqJSON));
+});
 
 // others ----------------------------------------------------------------------
 app.listen(process.env.PORT || 3000)
@@ -863,19 +869,78 @@ let postSignUpValidation = reqJSON => {
 };
 
 let postReviewSeller = (token, reqJSON) => {
+    let contents = reqJSON.contents;
+    let itemId = reqJSON.itemId;
+    let numStars = reqJSON.numStars;
     let response = postReviewSellerValidation(token, reqJSON);
+
     if (response["success"]) {
-        console.log();
+        let item = itemTable.get(itemId);
+        let sellerUsername = item["sellerUsername"];
+        let username = tokenTable.get(token)["username"];
+        
+        let info = {
+            "from": username,
+            "numStars": numStars,
+            "contents": contents,
+            "itemId": itemId,
+        };
+        if (sellerReviewTable.has(sellerUsername)){
+            sellerReviewTable.get(sellerUsername)["reviews"].push(info)
+        } else {
+            sellerReviewTable.set(sellerUsername,{"reviews": [info]});
+        }
+        
+        console.log("Your review has been submitted");
     };
     console.log("reponse: /postReviewSeller-", response);
     return response;
 };
 
 let postReviewSellerValidation = (token, reqJSON) => {
+    let itemId = reqJSON.itemId;
+    let item = itemTable.get(itemId);
+
     // check for invalid token request
     if (tokenValidations(token) !== undefined) {
         return tokenValidations(token);
     };
+
+    let sellerUsername = item["sellerUsername"];
+
+    // check for tx already reviewed 
+    if (sellerReviewTable.has(sellerUsername)){
+        let reviews = sellerReviewTable.get(sellerUsername)["reviews"];
+        for (let i = 0; i < reviews.length; i++) {
+            let review = reviews[i];
+
+            if (review["itemId"] === itemId) {
+                return POST_SELLER_REV_RES["txExist"];
+            }
+        }
+    }
+    let username = tokenTable.get(token)["username"];
+
+    // check if user purchased item
+    if (purchaseHistoryTable.has(username)) {
+        let valid = false;
+        let purchasedList = purchaseHistoryTable.get(username)["purchasedList"];
+        
+        for (let i = 0; i < purchasedList.length; i++){
+            let purchasedItemId = purchasedList[i];
+
+            if (purchasedItemId === itemId) {
+                console.log(purchasedItemId);
+                console.log(itemId)
+                valid = true;
+                break;
+            };
+        };
+        if (!valid) {
+            return POST_SELLER_REV_RES["notPurchased"];
+        };
+    };
+    return POST_SELLER_REV_RES["good"];
 };
 
 // support functions -----------------------------------------------------------
