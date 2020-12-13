@@ -1,8 +1,6 @@
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { response } = require('express');
 const express = require('express');
-const { token } = require('morgan');
 const morgan = require('morgan');
 
 const app = express();
@@ -41,6 +39,10 @@ const GET_STATUS_RES = {
     good: {"success":true,"status":"shipped"},
     notShipped: {"success":true,"status":"not-shipped"},
     itemNotSold: {"success":false,"reason":"Item not sold"},
+}
+
+const GET_REVIEWS_RES = {
+    good: {"success":true,"reviews": undefined}
 }
 
 const GLOBAL_RES = {
@@ -145,14 +147,6 @@ app.get("/purchase-history", (req, res) => {
     res.send(getPurchaseHistory(token));
 });
 
-// app.get("/selling", (req, res) => {
-    // let sellerUsername = req.query.sellerUsername;
-
-    // console.log("request: /selling-", sellerUsername);
-    // res.send(getSelling(sellerUsername));
-
-// });
-
 app.get("/sourcecode", (req, res) => {
     res.send(require('fs').readFileSync(__filename).toString());
 });
@@ -164,12 +158,12 @@ app.get("/status", (req, res) => {
     res.send(getStatus(itemId));
 });
 
-// app.get("/reviews", (req, res) => {
-    // let sellerUsername = req.query.sellerUsername;
+app.get("/reviews", (req, res) => {
+    let sellerUsername = req.query.sellerUsername;
 
-    // console.log("request: /reviews-", sellerUsername);
-    // res.send(getReviews(sellerUsername));
-// });
+    console.log("request: /reviews-", sellerUsername);
+    res.send(getReviews(sellerUsername));
+});
 
 // POST ------------------------------------------------------------------------
 
@@ -416,19 +410,6 @@ let getPurchaseHistoryValidation = token => {
     return GET_PURCHASE_HIS_RES["good"];
 };
 
-let getSelling = sellerUsername => {
-    let response = getSellingValidation(sellerUsername);
-    if (response["success"]) {
-        console.log();
-    };
-    console.log("reponse: /getSelling-", response);
-    return response;
-};
-
-let getSellingValidation = sellerUsername => {
-    
-};
-
 let getStatus = itemId => {
     let response = getStatusValidation(itemId);
 
@@ -447,6 +428,26 @@ let getStatusValidation = itemId => {
     };
     return GET_STATUS_RES["good"];
 };
+
+let getReviews = sellerUsername => {
+    let response = GET_REVIEWS_RES["good"];
+    let reviews = sellerReviewTable.get(sellerUsername)["reviews"];
+    let reviewList = [];
+
+    for (let i = 0; i < reviews.length; i++) {
+        let review = reviews[i];
+        let reviewRes = {
+            "from": review["from"],
+            "numStars": review["numStars"],
+            "contents": review["contents"],
+        };
+        reviewList.push(reviewRes);
+    }
+    response["reviews"] = reviewList;
+
+    console.log("response: /reviews-", response);
+    return response;
+}
 
 let postAddToCart = (token, reqJSON) => {
     let response = postAddToCartValidation(token, reqJSON);
